@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NPV Map Explorer · Where does an investment stop creating value?</title>
+<meta name="description" content="Interactive NPV map: see how the discount rate and the selling price combine to create or destroy value in an investment project.">
+<meta property="og:title" content="NPV Map Explorer · Where does an investment stop creating value?">
+<meta property="og:description" content="Play with interest rates, country risk and price, and watch the zero-NPV frontier move in real time.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --paper:#F4F5F2; --surface:#FFFFFF; --ink:#16212E; --muted:#5D6874; --line:#DCE0E3; --accent:#0F6E64; --accent-soft:#DDEFEA;
+ --pos:#0F7A6C; --neg:#C2366B; --neg-soft:#F8E1EA; --mark:#16212E; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+ --paper:#10171F; --surface:#18222D; --ink:#E9EEF2; --muted:#9AA7B3; --line:#2C3946; --accent:#4FC3B1; --accent-soft:#163A37;
+ --pos:#3CC2AE; --neg:#F0679A; --neg-soft:#3F1E2C; --mark:#F4F6F8; color-scheme:dark; } }
+:root[data-theme="dark"]{ --paper:#10171F; --surface:#18222D; --ink:#E9EEF2; --muted:#9AA7B3; --line:#2C3946; --accent:#4FC3B1; --accent-soft:#163A37;
+ --pos:#3CC2AE; --neg:#F0679A; --neg-soft:#3F1E2C; --mark:#F4F6F8; color-scheme:dark; }
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.55 "IBM Plex Sans","Segoe UI",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 20px 48px}
+h1{font:600 clamp(1.6rem,3.2vw,2.35rem)/1.15 "IBM Plex Serif",Georgia,serif;margin:0 0 .4rem;letter-spacing:-.01em}
+.lede{max-width:70ch;color:var(--muted);margin:0 0 1.4rem;font-size:1.05rem}
+h2{font-size:1.1rem;font-weight:600;margin:0 0 .5rem}
+h3{font-size:.95rem;font-weight:600;margin:1rem 0 .3rem;color:var(--muted)}
+.grid{display:grid;grid-template-columns:330px minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:960px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+aside.panel{position:sticky;top:14px}
+@media (max-width:960px){aside.panel{position:static}}
+.sl{margin:10px 0 12px}
+.sl .top{display:flex;justify-content:space-between;gap:10px;font-size:.92rem}
+.sl .val{font-weight:600;white-space:nowrap}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center;margin-top:4px}
+.sl input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+.num{width:100%;font:500 .85rem 'IBM Plex Sans',sans-serif;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);text-align:right}
+.grp{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
+.grp:first-of-type{border-top:none;margin-top:0;padding-top:0}
+.derived{background:var(--accent-soft);border-radius:8px;padding:8px 10px;font-size:.88rem;margin:6px 0 2px}
+.note{background:var(--accent-soft);border-radius:10px;padding:12px 14px;font-size:.95rem;margin:0 0 14px}
+.note b{font-weight:600}
+.mapwrap{position:relative;max-width:900px}
+svg{width:100%;height:auto;display:block}
+svg text{font-family:"IBM Plex Sans",sans-serif;fill:var(--muted);font-size:12px}
+.mapwrap svg{touch-action:pan-y;cursor:crosshair}
+svg:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--neg);outline-offset:2px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:.84rem;box-shadow:0 6px 18px rgba(0,0,0,.14);white-space:nowrap;z-index:3}
+ol.ins{padding-left:1.2rem;max-width:80ch;margin:.3rem 0 1rem}
+ol.ins li{margin:.45rem 0}
+.concl{border-left:4px solid var(--accent);background:var(--accent-soft);padding:10px 14px;border-radius:0 8px 8px 0;max-width:85ch}
+.concl.bad{border-left-color:var(--neg);background:var(--neg-soft)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi .l{font-size:.78rem;color:var(--muted)}
+.kpi .v{font-size:1.25rem;font-weight:600}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{font:600 .92rem "IBM Plex Sans",sans-serif;border-radius:8px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);padding:.5rem .85rem;cursor:pointer}
+button.primary{background:var(--accent);color:var(--surface)}
+.small{font-size:.84rem;color:var(--muted)}
+.concepts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}
+@media (max-width:860px){.concepts{grid-template-columns:minmax(0,1fr)}}
+.concepts p{margin:.2rem 0;font-size:.93rem}
+footer{margin-top:22px;font-size:.8rem;color:var(--muted)}
+.about{margin-top:22px}
+.about p{max-width:95ch}
+.aboutgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:8px}
+@media (max-width:960px){.aboutgrid{grid-template-columns:minmax(0,1fr)}}
+.about ul{margin:.2rem 0 0;padding-left:1.1rem;font-size:.92rem}
+.about li{margin:.35rem 0}
+.about h3{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <h1>Where does an investment stop creating value?</h1>
+ <p class="lede">A project's value depends on many things, but two usually dominate: the <b>rate</b> investors demand and the <b>price</b> the product sells for. This map shows every combination of both at once, and the frontier where the project stops creating value. Move the sliders and watch it change.</p>
+ <div class="grid">
+  <aside class="panel" aria-label="Project assumptions">
+   <div class="grp"><h2>Cost of capital</h2>
+    <div id="g-rates"></div>
+    <div class="derived" id="derived"></div></div>
+   <div class="grp"><h2>Price</h2><div id="g-price"></div></div>
+   <div class="grp"><h2>Project</h2><div id="g-proj"></div></div>
+   <div class="btns"><button id="reset">Reset to example</button><button class="primary" id="png">Download image (PNG)</button></div>
+   <p class="small" id="pngmsg" aria-live="polite"></p>
+  </aside>
+  <main>
+   <section class="panel">
+    <div class="kpis" id="kpis"></div>
+    <div class="note"><b>How to read it.</b> Each point is one combination of two variables: the <b>cost of equity</b> (horizontal axis, 0% to 60% per year: risk-free rate + country risk + project premium) and the <b>selling price</b> (vertical axis, −50% to +50% versus the base price). The colour is the project's <b>NPV</b> in that combination, in today's dollars over the whole project life: <b>green</b> creates value, <b>pink</b> destroys it; the stronger the colour, the larger the amount. The <b>black line</b> is the frontier where NPV is exactly zero. The circle <b>“Today”</b> is where the sliders place the project. Each slider has a box next to it to type the exact figure of a real case, including values beyond the slider range. Hover or tap the map to read any combination.</div>
+    <div class="mapwrap" id="mapwrap"></div>
+    <h2 style="margin-top:14px">What the map says right now</h2>
+    <ol class="ins" id="ins"></ol>
+    <div class="concl" id="concl"></div>
+   </section>
+   <section class="concepts" aria-label="Key concepts">
+    <div class="panel"><h2>Why the frontier tilts</h2><p>A higher rate makes future cash worth less today, so the project needs a higher price to stay at zero NPV. The slope of the black line is that trade-off: how much price compensates each extra point of rate.</p></div>
+    <div class="panel"><h2>Why IRR alone is not enough</h2><p>The IRR depends only on the cash flows, so it does not move with the rate. It tells you where the frontier crosses at a given price, but the map shows how far you are from it in both directions at once.</p></div>
+    <div class="panel"><h2>How to use it</h2><p>Look at the distance from “Today” to the black line. A short distance means a fragile project: secure the price (contracts) or the rate (fixed financing) before investing. A long distance means room for bad news.</p></div>
+   </section>
+  </main>
+ </div>
+ <section class="panel about" aria-label="About this model">
+  <h2>About this model: a learning tool, not a valuation</h2>
+  <p>This explorer is a <b>conceptual learning format</b>. Its purpose is to build intuition about how the cost of capital and the selling price interact to create or destroy value, and to make the zero-NPV frontier visible. It is deliberately simple so that every result can be traced back to a few assumptions. Use it to understand, explain and frame a decision, not to make one on its own.</p>
+  <div class="aboutgrid">
+   <div><h3>The concept in one paragraph</h3>
+    <p>A project creates value when its future cash flows, discounted at the return investors require, exceed what it costs today. That required return rises with the risk-free rate, country risk and the project's own risk, and falls as cheaper debt is added (the WACC). The selling price drives the cash flows. Every combination of rate and price gives one NPV; the line where NPV equals zero separates the projects worth doing from those that are not. The distance from where you stand today to that line is your margin of safety.</p></div>
+   <div><h3>What the model assumes</h3>
+    <ul>
+     <li><b>Constant cash flows:</b> the same revenue and costs every year, with no ramp-up, growth, seasonality or inflation.</li>
+     <li><b>One investment at the start:</b> no expansions, overhauls or replacements during the project life.</li>
+     <li><b>Straight-line depreciation</b> of the full investment over the project life.</li>
+     <li><b>Tax on every year's result,</b> even when negative: it assumes the company can offset project losses against other profits. No loss carry-forwards, no tax holidays.</li>
+     <li><b>Price moves alone:</b> a price change affects revenue but not volume; variable costs stay at their base-price level.</li>
+     <li><b>Working capital</b> as a share of revenue, invested at the start and fully recovered at the end; <b>salvage value</b> taxed in full in the last year.</li>
+     <li><b>Constant financing mix:</b> the WACC uses fixed weights of equity and debt. It does not model loan schedules, grace periods or the investor's cash flow.</li>
+     <li><b>A single currency</b> (USD) with no exchange-rate effects; no indirect taxes (VAT) or their timing.</li>
+    </ul></div>
+   <div><h3>How to use it with judgment</h3>
+    <ul>
+     <li><b>Read distances, not points.</b> The exact NPV matters less than how far “Today” is from the frontier, in both price and rate.</li>
+     <li><b>Stress the drivers you are least sure of.</b> If the price or country risk is uncertain, move it to a pessimistic value and check which side of the line you land on.</li>
+     <li><b>Use the trade-off.</b> The price-per-rate-point figure tells you how much pricing power you need to absorb a rise in rates.</li>
+     <li><b>Check the inputs make sense together.</b> A high price with the same volume, or a long life with no reinvestment, can flatter the result.</li>
+     <li><b>Move to a full model before deciding.</b> Real projects need year-by-year cash flows: ramp-up, product mix, loan schedules, taxes, working capital timing and a risk analysis such as Monte Carlo simulation.</li>
+    </ul></div>
+  </div>
+ </section>
+ <footer>Learning tool built with a generic, illustrative project. The figures are for understanding the concept only and are not investment advice.</footer>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const fN=new Intl.NumberFormat("en-US",{maximumFractionDigits:0}), f1=new Intl.NumberFormat("en-US",{maximumFractionDigits:1,minimumFractionDigits:1}), f2=new Intl.NumberFormat("en-US",{maximumFractionDigits:2,minimumFractionDigits:2});
+const usd=v=>!isFinite(v)?"n/a":(v<0?"−":"")+"$"+fN.format(Math.abs(Math.abs(v)<0.5?0:v));
+const usdc=v=>{ const a=Math.abs(v), s=v<0?"−":""; if(a>=1e6) return s+"$"+f1.format(a/1e6)+"M"; if(a>=1e3) return s+"$"+fN.format(a/1e3)+"k"; return s+"$"+fN.format(a); };
+const pc=v=>v===null||!isFinite(v)?"n/a":f1.format(v*100)+"%";
+const pc2=v=>f2.format(v*100)+"%";
+const sg=v=>(v>0?"+":v<0?"−":"")+f1.format(Math.abs(v)*100)+"%";
+const DEF={rf:4.3,crp:7,prem:3,debt:40,kd:9,price:0,capex:5000000,rev:3200000,vc:45,fc:500000,life:10,tax:30,wc:10,salv:10};
+const S=[
+ {g:"g-rates",k:"rf",lab:"Risk-free rate (US Treasury)",min:0,max:10,step:0.1,f:v=>f1.format(v)+"%"},
+ {g:"g-rates",k:"crp",lab:"Country risk premium",min:0,max:30,step:0.25,f:v=>f2.format(v)+"%"},
+ {g:"g-rates",k:"prem",lab:"Project risk premium",min:0,max:20,step:0.25,f:v=>f2.format(v)+"%"},
+ {g:"g-rates",k:"debt",lab:"Share financed with debt",min:0,max:80,step:1,f:v=>fN.format(v)+"%"},
+ {g:"g-rates",k:"kd",lab:"Interest rate on debt (USD)",min:1,max:30,step:0.25,f:v=>f2.format(v)+"%"},
+ {g:"g-price",k:"price",lab:"Price vs base price",min:-50,max:50,step:0.5,f:v=>sg(v/100)},
+ {g:"g-proj",k:"capex",lab:"Initial investment",min:500000,max:20000000,step:100000,f:v=>usdc(v)},
+ {g:"g-proj",k:"rev",lab:"Yearly revenue at base price",min:500000,max:20000000,step:50000,f:v=>usdc(v)},
+ {g:"g-proj",k:"vc",lab:"Variable costs (% of base revenue)",min:0,max:90,step:1,f:v=>fN.format(v)+"%"},
+ {g:"g-proj",k:"fc",lab:"Fixed costs per year",min:0,max:5000000,step:25000,f:v=>usdc(v)},
+ {g:"g-proj",k:"life",lab:"Project life",min:3,max:40,step:1,f:v=>fN.format(v)+" years"},
+ {g:"g-proj",k:"tax",lab:"Income tax rate",min:0,max:45,step:1,f:v=>fN.format(v)+"%"},
+ {g:"g-proj",k:"wc",lab:"Working capital (% of revenue)",min:0,max:40,step:1,f:v=>fN.format(v)+"%"},
+ {g:"g-proj",k:"salv",lab:"Salvage value (% of investment)",min:0,max:50,step:1,f:v=>fN.format(v)+"%"}];
+const LIM={rf:[0,30],crp:[0,100],prem:[0,100],debt:[0,95],kd:[0,100],price:[-90,300],capex:[1,1e10],rev:[0,1e10],vc:[0,100],fc:[0,1e10],life:[1,60],tax:[0,60],wc:[0,100],salv:[0,100]};
+function build(){ for(const s of S){ const d=document.createElement("div"); d.className="sl";
+  d.innerHTML=`<div class="top"><label for="s_${s.k}">${s.lab}</label><span class="val" id="v_${s.k}"></span></div><div class="row2"><input type="range" id="s_${s.k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${DEF[s.k]}" aria-label="${s.lab}"><input type="number" class="num" id="n_${s.k}" step="any" value="${DEF[s.k]}" aria-label="${s.lab}, exact value"></div>`;
+  $("#"+s.g).appendChild(d);
+  const r=d.querySelector('input[type=range]'), n=d.querySelector('input[type=number]');
+  r.addEventListener("input",()=>{ n.value=r.value; sched(); });
+  n.addEventListener("input",()=>{ let v=parseFloat(n.value); if(!isFinite(v)) return; const L=LIM[s.k]; v=Math.max(L[0],Math.min(L[1],v)); if(s.k==="life") v=Math.round(v);
+   if(v>+r.max) r.max=v; if(v<+r.min) r.min=v; r.value=v; r.dataset.exact=v; sched(); });
+  n.addEventListener("change",()=>{ const v=P()[s.k]; n.value=v; }); } }
+function P(){ const o={}; for(const s of S){ const n=parseFloat($("#n_"+s.k).value), L=LIM[s.k]; let v=isFinite(n)?n:+$("#s_"+s.k).value; v=Math.max(L[0],Math.min(L[1],v)); if(s.k==="life") v=Math.max(1,Math.round(v)); o[s.k]=v; } return o; }
+// ---- modelo
+function wacc(p,ke){ const d=p.debt/100; return (1-d)*ke+d*(p.kd/100)*(1-p.tax/100); }
+function flows(p,y){ const N=p.life, t=p.tax/100, R=p.rev*(1+y), VC=p.vc/100*p.rev, dep=p.capex/N, W=p.wc/100*R, salv=p.salv/100*p.capex;
+ const ebitda=R-VC-p.fc, fcf=ebitda-t*(ebitda-dep); const f=[-p.capex-W]; for(let k=1;k<=N;k++) f.push(fcf); f[N]+=W+salv*(1-t); return f; }
+function npv(r,f){ let s=0; for(let k=0;k<f.length;k++) s+=f[k]/Math.pow(1+r,k); return s; }
+function irr(f){ let lo=-0.99,hi=5,a=npv(lo,f),b=npv(hi,f); if(a*b>0) return null; for(let i=0;i<120;i++){ const m=(lo+hi)/2,v=npv(m,f); if(a*v<=0) hi=m; else {lo=m;a=v;} } return (lo+hi)/2; }
+const val=(p,ke,y)=>npv(wacc(p,ke),flows(p,y));
+const XS=[],YS=[]; for(let i=0;i<=30;i++) XS.push(i*0.02); for(let j=0;j<=40;j++) YS.push(-0.5+j*0.025);
+let pend=false; function sched(){ if(pend) return; pend=true; requestAnimationFrame(()=>{pend=false; render();}); }
+function bis(g,a,b){ let fa=g(a),fb=g(b); if(fa*fb>0) return null; for(let i=0;i<70;i++){ const m=(a+b)/2,fm=g(m); if(fa*fm<=0){b=m;} else {a=m;fa=fm;} } return (a+b)/2; }
+let G=null;
+function render(){ const p=P(); for(const s of S) $("#v_"+s.k).textContent=s.f(p[s.k]);
+ const ke=(p.rf+p.crp+p.prem)/100, y0=p.price/100, w=wacc(p,ke), f0=flows(p,y0), v0=npv(w,f0), ir=irr(f0);
+ $("#derived").innerHTML=`Cost of equity = ${f1.format(p.rf)}% + ${f2.format(p.crp)}% + ${f2.format(p.prem)}% = <b>${pc2(ke)}</b><br>WACC (with ${fN.format(p.debt)}% debt at ${f2.format(p.kd)}% after tax) = <b>${pc2(w)}</b>`;
+ $("#kpis").innerHTML=[["NPV today",usd(v0),v0>=0?"pos":"neg"],["IRR",pc(ir),ir!==null&&ir>w?"pos":"neg"],["Discount rate (WACC)",pc(w),""],["Value created per $1 invested",(v0/p.capex>=0?"$":"−$")+f2.format(Math.abs(v0/p.capex)),v0>=0?"pos":"neg"]].map(([l,v,c])=>`<div class="kpi"><div class="l">${l}</div><div class="v ${c}">${v}</div></div>`).join("");
+ const Z=YS.map(y=>XS.map(x=>val(p,x,y))); const IRY=YS.map(y=>irr(flows(p,y)));
+ // dibujo
+ const narrow=($("#mapwrap").clientWidth||800)<600; const W=narrow?480:820,H=narrow?390:450,ml=narrow?62:80,mr=narrow?112:126,mt=24,mb=48;
+ const X=x=>ml+x/0.6*(W-ml-mr), Y=y=>H-mb-(y+0.5)*(H-mt-mb), cw=(W-ml-mr)/30, ch=(H-mt-mb)/40;
+ let mx=0; for(const r of Z) for(const z of r) mx=Math.max(mx,Math.abs(z)); mx=mx||1;
+ const alpha=z=>Math.min(1,Math.pow(Math.abs(z)/mx,0.6))*0.85+0.08;
+ let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="NPV map by cost of equity and price" tabindex="0" id="map"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--surface)"/>`;
+ for(let j=0;j<YS.length;j++) for(let i=0;i<XS.length;i++) s+=`<rect x="${(X(XS[i])-cw/2).toFixed(1)}" y="${(Y(YS[j])-ch/2).toFixed(1)}" width="${(cw+0.6).toFixed(1)}" height="${(ch+0.6).toFixed(1)}" fill="${Z[j][i]>=0?"var(--pos)":"var(--neg)"}" fill-opacity="${alpha(Z[j][i]).toFixed(3)}"/>`;
+ const seg=[],ip=(a,b,za,zb)=>a+(b-a)*(za/(za-zb));
+ for(let j=0;j<YS.length-1;j++) for(let i=0;i<XS.length-1;i++){ const a=Z[j][i],b=Z[j][i+1],c=Z[j+1][i],d=Z[j+1][i+1],q=[];
+  if(a*b<0) q.push([ip(XS[i],XS[i+1],a,b),YS[j]]); if(b*d<0) q.push([XS[i+1],ip(YS[j],YS[j+1],b,d)]); if(c*d<0) q.push([ip(XS[i],XS[i+1],c,d),YS[j+1]]); if(a*c<0) q.push([XS[i],ip(YS[j],YS[j+1],a,c)]);
+  if(q.length>=2) seg.push(q[0],q[1]); if(q.length===4) seg.push(q[2],q[3]); }
+ let d=""; for(let k=0;k<seg.length;k+=2) d+=`M${X(seg[k][0]).toFixed(1)},${Y(seg[k][1]).toFixed(1)}L${X(seg[k+1][0]).toFixed(1)},${Y(seg[k+1][1]).toFixed(1)}`;
+ s+=`<path d="${d}" fill="none" stroke="var(--mark)" stroke-width="3"/>`;
+ for(const t of (narrow?[0,0.2,0.4,0.6]:[0,0.1,0.2,0.3,0.4,0.5,0.6])) s+=`<text x="${X(t)}" y="${H-mb+ch/2+16}" text-anchor="middle">${t*100}%</text>`;
+ for(const t of [-0.5,-0.25,0,0.25,0.5]) s+=`<text x="${ml-cw/2-6}" y="${Y(t)+4}" text-anchor="end">${t>0?"+":t<0?"−":""}${Math.abs(t*100)}%</text>`;
+ s+=`<text x="${(ml+W-mr)/2}" y="${H-8}" text-anchor="middle" style="fill:var(--ink)">${narrow?"Cost of equity (per year)":"Cost of equity per year (risk-free + country risk + project premium)"}</text>`;
+ s+=`<text transform="translate(13,${(mt+H-mb)/2}) rotate(-90)" text-anchor="middle" style="fill:var(--ink)">Price vs base price</text>`;
+ if(ke<=0.6&&y0>=-0.5&&y0<=0.5) s+=`<circle cx="${X(ke)}" cy="${Y(y0)}" r="8" fill="var(--surface)" stroke="var(--mark)" stroke-width="3"/><text x="${X(ke)+12}" y="${Y(y0)-10}" style="fill:var(--ink);font-weight:700;paint-order:stroke;stroke:var(--surface);stroke-width:4px">Today</text>`;
+ const lx=W-mr+18; s+=`<text x="${lx}" y="${mt+4}" style="fill:var(--ink);font-weight:600">NPV</text>`;
+ for(let k=0;k<=10;k++){ const zz=mx*(1-k/5); s+=`<rect x="${lx}" y="${mt+12+k*22}" width="18" height="22" fill="${zz>=0?"var(--pos)":"var(--neg)"}" fill-opacity="${alpha(zz).toFixed(3)}"/>`; if(k%5===0) s+=`<text x="${lx+24}" y="${mt+27+k*22}">${usdc(zz)}</text>`; }
+ s+=`<line x1="${lx-2}" x2="${lx+20}" y1="${mt+12+5*22+11}" y2="${mt+12+5*22+11}" stroke="var(--mark)" stroke-width="3"/>`;
+ s+=`<rect class="guide" visibility="hidden" width="${cw+0.6}" height="${ch+0.6}" fill="none" stroke="var(--mark)" stroke-width="2"/>`;
+ s+=`</svg>`;
+ $("#mapwrap").innerHTML=s+`<div class="tip" hidden></div>`; G={X,Y,W,H,ml,mb,cw,ch,Z,IRY,p}; bind();
+ // insights
+ const yMin=bis(y=>val(p,ke,y),-0.5,0.5), xMax=bis(x=>val(p,x,y0),0,0.6);
+ const yA=bis(y=>val(p,Math.min(0.6,ke+0.05),y),-0.5,0.5), slope=(yMin!==null&&yA!==null)?(yA-yMin)/5:null;
+ let pos=0; for(const r of Z) for(const z of r) if(z>0) pos++; const share=pos/(XS.length*YS.length);
+ const vS=val(p,Math.min(0.6,ke+0.10),Math.max(-0.5,y0-0.10));
+ const L=[];
+ L.push(`<b>Where the project stands.</b> With a cost of equity of ${pc2(ke)} (WACC ${pc2(w)}) and the price ${y0===0?"at the base level":sg(y0)+" versus base"}, “Today” sits in the ${v0>0?"<span class='pos'>green zone</span>: the project creates value":"<span class='neg'>pink zone</span>: the project destroys value"}, with an NPV of <b>${usd(v0)}</b>${ir!==null?` and an IRR of ${pc(ir)}`:""}.`);
+ if(yMin===null) L.push(val(p,ke,-0.5)>0?`<b>How far the price can fall.</b> At today's rate, NPV stays positive even with the price 50% lower.`:`<b>What price is needed.</b> At today's rate, NPV is negative even with the price 50% higher.`);
+ else if(yMin<=y0) L.push(`<b>How far the price can fall.</b> At today's rate, the price can drop to <b>${sg(yMin)}</b> versus base before NPV reaches zero: a cushion of ${f1.format((y0-yMin)*100)} price points.`);
+ else L.push(`<b>What price is needed.</b> At today's rate, the price must be at least <b>${sg(yMin)}</b> versus base for NPV to reach zero: ${f1.format((yMin-y0)*100)} points above today.`);
+ if(xMax===null) L.push(val(p,0.6,y0)>0?`<b>How high the rate can go.</b> At today's price, NPV stays positive even with a 60% cost of equity.`:`<b>What rate is needed.</b> At today's price, NPV is negative at any cost of equity in the range.`);
+ else if(xMax>ke) L.push(`<b>How high the rate can go.</b> At today's price, the cost of equity can rise to <b>${pc2(xMax)}</b> before NPV reaches zero: ${f1.format((xMax-ke)*100)} points of headroom.`);
+ else L.push(`<b>What rate is needed.</b> At today's price, the cost of equity would have to fall to <b>${pc2(xMax)}</b> or less for NPV to reach zero.`);
+ if(slope!==null) L.push(`<b>How much price offsets the rate.</b> Along the frontier, each extra point of cost of equity requires a price about <b>${f2.format(Math.abs(slope)*100)}% ${slope>0?"higher":"lower"}</b> to keep NPV at zero. Useful in negotiations: if country risk rises, this is the price adjustment that compensates it.`);
+ L.push(`<b>How wide the safe zone is.</b> The project creates value in <b>${pc(share)}</b> of the combinations on the map. A combined shock, 10 points more on the rate and a price 10% lower than today, would give an NPV of <b>${usd(vS)}</b>.`);
+ if(!(ke<=0.6&&y0>=-0.5&&y0<=0.5)) L.unshift(`<b>Note.</b> “Today” (cost of equity ${pc2(ke)}, price ${sg(y0)}) falls outside the map range (0%–60% and −50% to +50%), so it is not drawn; the figures below still use the exact values.`);
+ $("#ins").innerHTML=L.map(x=>`<li>${x}</li>`).join("");
+ const dist=xMax!==null?xMax-ke:0.6-ke; let c, bad=false;
+ if(v0<=0){ bad=true; c=`Today the project is on the pink side: with these assumptions it destroys value. Crossing the frontier needs ${yMin!==null?`a price of at least ${sg(yMin)} versus base at today's rate`:"a better price or a lower rate"}, or lower costs and investment.`; }
+ else if((yMin!==null&&y0-yMin<0.10)||dist<0.05){ c=`The project creates value, but “Today” is close to the frontier: a price drop of ${yMin!==null?f1.format((y0-yMin)*100)+" points":"a few points"} or a rate increase of ${f1.format(dist*100)} points takes NPV to zero. Secure the price with contracts and lock in the rate before investing.`; }
+ else c=`The project creates value with a comfortable margin: “Today” is far from the frontier in both price (${yMin!==null?f1.format((y0-yMin)*100)+" points":"more than 50 points"}) and rate (${f1.format(dist*100)} points). The price is still the variable to watch.`;
+ $("#concl").className="concl"+(bad?" bad":""); $("#concl").innerHTML=`<b>Conclusion.</b> ${c}`;
+}
+function bind(){ const wrap=$("#mapwrap"), svg=$("#map"), tip=wrap.querySelector(".tip"), g=svg.querySelector(".guide"); let cur=null;
+ const show=(i,j)=>{ i=Math.max(0,Math.min(30,i)); j=Math.max(0,Math.min(40,j)); cur=[i,j]; const x=XS[i],y=YS[j],z=G.Z[j][i];
+  g.setAttribute("visibility","visible"); g.setAttribute("x",G.X(x)-G.cw/2); g.setAttribute("y",G.Y(y)-G.ch/2);
+  tip.innerHTML=`<b>Cost of equity ${f1.format(x*100)}% · price ${sg(y)}</b><div>WACC: ${pc2(wacc(G.p,x))}</div><div>NPV: <b class="${z>=0?"pos":"neg"}">${usd(z)}</b> (${z>=0?"creates value":"destroys value"})</div><div class="small">IRR at that price: ${pc(G.IRY[j])}</div>`;
+  tip.hidden=false; const r=svg.getBoundingClientRect(), wr=wrap.getBoundingClientRect(); const px=G.X(x)/G.W*r.width+(r.left-wr.left), py=G.Y(y)/G.H*r.height+(r.top-wr.top);
+  tip.style.left=Math.min(wr.width-tip.offsetWidth-4,Math.max(4,px+14))+"px"; tip.style.top=Math.max(4,py-tip.offsetHeight-12)+"px"; };
+ const ev=e=>{ const r=svg.getBoundingClientRect(); const xv=(e.clientX-r.left)/r.width*G.W, yv=(e.clientY-r.top)/r.height*G.H; return [Math.round((xv-G.ml)/G.cw),Math.round((G.H-G.mb-yv)/G.ch)]; };
+ svg.addEventListener("pointermove",e=>show(...ev(e))); svg.addEventListener("pointerdown",e=>show(...ev(e)));
+ svg.addEventListener("pointerleave",()=>{ g.setAttribute("visibility","hidden"); tip.hidden=true; });
+ svg.addEventListener("keydown",e=>{ const [i,j]=cur||[15,20]; const m={ArrowRight:[1,0],ArrowLeft:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key]; if(m){ e.preventDefault(); show(i+m[0],j+m[1]); } });
+ svg.addEventListener("focus",()=>show(...(cur||[15,20]))); svg.addEventListener("blur",()=>{ g.setAttribute("visibility","hidden"); tip.hidden=true; }); }
+$("#reset").addEventListener("click",()=>{ for(const s of S){ const r=$("#s_"+s.k); r.min=s.min; r.max=s.max; r.value=DEF[s.k]; $("#n_"+s.k).value=DEF[s.k]; } render(); });
+// imagen PNG para publicar
+$("#png").addEventListener("click",async()=>{ const msg=$("#pngmsg"); msg.textContent="Preparing image…";
+ try{ const svg=$("#map").cloneNode(true); const cs=getComputedStyle(document.documentElement); let txt=new XMLSerializer().serializeToString(svg).replace(/var\(--([a-z-]+)\)/g,(m,n)=>cs.getPropertyValue("--"+n).trim());
+  txt=txt.replace("<svg",`<svg style="font-family:Arial,sans-serif"`).replace(/<svg([^>]*)>/,`<svg$1 xmlns="http://www.w3.org/2000/svg"><style>text{font-family:Arial,sans-serif;font-size:12px;fill:${cs.getPropertyValue("--muted").trim()}}</style>`);
+  const p=P(), ke=(p.rf+p.crp+p.prem)/100, v0=val(p,ke,p.price/100); const scale=2, W=G.W, H=G.H, head=90;
+  const img=new Image(); img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(txt); await img.decode();
+  const c=document.createElement("canvas"); c.width=W*scale; c.height=(H+head+40)*scale; const x=c.getContext("2d"); x.scale(scale,scale);
+  x.fillStyle=cs.getPropertyValue("--surface").trim(); x.fillRect(0,0,W,H+head+40); x.fillStyle=cs.getPropertyValue("--ink").trim();
+  x.font="600 24px Georgia, serif"; x.fillText("Where does an investment stop creating value?",24,40);
+  x.font="15px Arial, sans-serif"; x.fillStyle=cs.getPropertyValue("--muted").trim(); x.fillText(`NPV by cost of equity and price · Today: NPV ${usd(v0)} · black line = zero NPV`,24,68);
+  x.drawImage(img,0,head,W,H); x.font="12px Arial, sans-serif"; x.fillText("Illustrative generic project. Green creates value, pink destroys it.",24,H+head+24);
+  const blob=await new Promise(r=>c.toBlob(r,"image/png")); window.__png=blob.size;
+  let dl=null; try{ dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null; }catch(e){}
+  if(dl){ try{ await dl.save({filename:"npv-map.png",data:blob}); msg.textContent="Image ready."; }catch(e){ msg.textContent=e&&e.code==="declined"?"Download cancelled.":"Download is not available in this view."; } }
+  else { const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="npv-map.png"; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500); msg.textContent="Image ready."; }
+ }catch(e){ msg.textContent="Could not create the image."; } });
+build(); render(); window.addEventListener("resize",sched);
+</script>
+</body>
+</html>
